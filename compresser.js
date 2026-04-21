@@ -1,7 +1,7 @@
 /**
 * Title: Meshtastic image encoder
 * Author: Robodog81
-* Date: 21/03/2026
+* Date: 06/03/2026
 * Version: 1
 * Purpose: Encode and decode images for the meshtastic mesh
 **/
@@ -13,6 +13,7 @@ const HEIGHT = 300
 const TARGETBASE = 55000n//11141104n - 10000n // what base to encode to (limited by amount of characters in encoderData)
 const CHARAMT = 64 // the amount of characters to encode to (0 bufs up to this value)
 const SENDSIZE = 31
+const MONOTH = 128 // the black and white conversion threshold
 
 
 //window.addEventListener('mousemove', mouseMoved)
@@ -57,7 +58,7 @@ function encode(){ // Runs once on load
 	
 	for (let i = 0; i < scanData.length; i += 4){
 		const luminance = 0.2126 * scanData[i] + 0.7152 * scanData[i + 1] + 0.0722 * scanData[i + 2]
-		const monoValue = (luminance >= 128) ? 255 : 0
+		const monoValue = (luminance >= MONOTH) ? 255 : 0
 		scanData[i] = monoValue
 		scanData[i + 1] = monoValue
 		scanData[i + 2] = monoValue
