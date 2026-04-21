@@ -22,7 +22,7 @@ window.onload=startCanvas
 
 function startCanvas(){
 	console.log("Upload a " + SENDSIZE + "x" + SENDSIZE + " image or decode a recived string")
-	document.getElementById("helperText").innerHTML = "Upload a " + SENDSIZE + "x" + SENDSIZE + " image or decode a recived string"
+	document.getElementById("helperText").innerHTML = "Upload an image, it will automatically be scalled " + SENDSIZE + "x" + SENDSIZE
 	const input = document.getElementById("imageInput")
 	const canvas = document.getElementById("myCanvas")
 	ctx = canvas.getContext("2d")
@@ -40,16 +40,17 @@ function startCanvas(){
 			URL.revokeObjectURL(img.src)
 			
 			console.log("Image uploaded\nImage is " + img.naturalWidth + " pixels\nStarting encoder")
-			IMGSIZE = img.naturalWidth
-			ctx.drawImage(img, 0, 0, IMGSIZE, IMGSIZE)
+			imgSize = img.naturalWidth
+			console.log(imgSize)
 			
+			ctx.drawImage(img, 0, 0, SENDSIZE, SENDSIZE)
 			encode()
 		}
 	})
 }
 
 function encode(){ // Runs once on load
-	scan = ctx.getImageData(0, 0, IMGSIZE, IMGSIZE)// WIDTH, HEIGHT)
+	scan = ctx.getImageData(0, 0, SENDSIZE, SENDSIZE)// WIDTH, HEIGHT)
 	scanData = scan.data
 	scanSmall = scanData.slice()
 	binaryImage = ""
@@ -66,13 +67,13 @@ function encode(){ // Runs once on load
 	ctx.putImageData(scan, 0, 0)
 	
 	// scale the image to fit the screen
-	scale = WIDTH / IMGSIZE //size of image
+	scale = WIDTH / imgSize //size of image
 	const resizedImage = ctx.createImageData(WIDTH, HEIGHT)
 	for (let y = 0; y < HEIGHT; y++){
 		for (let x = 0; x < WIDTH; x++){
 			oldX = Math.floor(x / scale)
 			oldY = Math.floor(y / scale)
-			oldIdX = (oldY * IMGSIZE + oldX) * 4
+			oldIdX = (oldY * imgSize + oldX) * 4
 			newIdX = (y * WIDTH + x) * 4
 			
 			resizedImage.data[newIdX] = scan.data[oldIdX]
@@ -98,6 +99,7 @@ function encode(){ // Runs once on load
 		.then(() => {
 			console.log("Image code copied to your clipboard");
 			document.getElementById("helperText").innerHTML = "Image code copied to your clipboard"
+			decode(encoded)
 		})
 		.catch((err) => {
 			console.error("Error: Could not copy text", err);
@@ -105,8 +107,14 @@ function encode(){ // Runs once on load
 		});
 }
 
-function decode(){ // decode inputted text. triggered by a button in the HTML
-	let input = prompt("Please enter your encoded image:");
+function decode(decoderInput){ // decode inputted text. triggered by a button in the HTML
+	if (decoderInput === undefined){ // check if the function has an argument passed in
+		input = prompt("Please enter your encoded image:");
+		document.getElementById("helperText").innerHTML = "Decoded" // premptivly say decoded
+	} else {
+		input = decoderInput
+		document.getElementById("helperText").innerHTML = "Image code copied to your clipboard. This is what the sent image will look like."
+	}
 	
 	base10Out = 0n
 	let placeValue = 1n
@@ -140,7 +148,6 @@ function decode(){ // decode inputted text. triggered by a button in the HTML
 		}
 	}
 	ctx.putImageData(outputImage, 0, 0)
-	document.getElementById("helperText").innerHTML = "Decoded"
 }
 
 
