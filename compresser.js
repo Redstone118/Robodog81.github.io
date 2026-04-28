@@ -1,8 +1,8 @@
 /**
 * Title: Meshtastic image encoder
 * Author: Robodog81
-* Date: 22/04/2026
-* Version: 1
+* Date: 28/04/2026
+* Version: 2 (first big update)
 * Purpose: Encode and decode images for the meshtastic mesh
 **/
 
@@ -11,8 +11,8 @@ console.log("Initiated\nWaiting for user input")
 const WIDTH = 300
 const HEIGHT = 300
 const TARGETBASE = 94n//11141104n - 10000n // what base to encode to (limited by amount of characters in encoderData)
-const CHARAMT = 200 // the amount of characters to encode to (0 bufs up to this value)
-const SENDSIZE = 36
+const CHARAMT = 199 // the amount of characters to encode to (0 bufs up to this value)
+const SENDSIZE = 36 // res of imag
 const MONOTH = 128 // the black and white conversion threshold
 
 
@@ -22,6 +22,12 @@ const MONOTH = 128 // the black and white conversion threshold
 window.onload=startCanvas
 
 function startCanvas(){
+	threshold.hidden = true
+	THT.hidden = true
+	imageInput.hidden = false
+	encodeButton.hidden = true
+	decodeButton.hidden = false
+	
 	console.log("Upload a " + SENDSIZE + "x" + SENDSIZE + " image or decode a recived string")
 	document.getElementById("helperText").innerHTML = "Upload an image, it will automatically be scalled " + SENDSIZE + "x" + SENDSIZE
 	const input = document.getElementById("imageInput")
@@ -45,36 +51,50 @@ function startCanvas(){
 			console.log(imgSize)
 			
 			ctx.drawImage(img, 0, 0, SENDSIZE, SENDSIZE)
-			encode()
+			startEncode()
 		}
 	})
 }
 
-function encode(){ // Runs once on load
+function startEncode(){ // Runs once on load
+	document.getElementById("helperText").innerHTML = "Adjust the slider untill the image looks good, then press 'Encode Image'"
+
 	scan = ctx.getImageData(0, 0, SENDSIZE, SENDSIZE)// WIDTH, HEIGHT)
-	scanData = scan.data
-	scanSmall = scanData.slice()
-	binaryImage = ""
+	scanData = scan.data // constantly edited
+	scanReadOnly = scanData.slice() // only readed
 	
-	for (let i = 0; i < scanData.length; i += 4){
-		const luminance = 0.2126 * scanData[i] + 0.7152 * scanData[i + 1] + 0.0722 * scanData[i + 2]
-		const monoValue = (luminance >= MONOTH) ? 255 : 0
+	threshold.hidden = false // show the slider
+	THT.hidden = false
+	imageInput.hidden = true
+	encodeButton.hidden = false
+	decodeButton.hidden = true
+	
+	monoLoop = setInterval(processMono, 1) // loop the thereshold changing code
+}
+
+function processMono(){ // runs in a loob for the user to adjust the threshold to convert to mono
+	binaryImage = "" // clear the image data
+	const slider = document.getElementById("threshold")
+	const thresholdValue = slider.value;
+	
+	for (let i = 0; i < scanReadOnly.length; i += 4){ // convert the image to mono
+		const luminance = 0.2126 * scanReadOnly[i] + 0.7152 * scanReadOnly[i + 1] + 0.0722 * scanReadOnly[i + 2]
+		const monoValue = (luminance >= thresholdValue) ? 255 : 0
 		scanData[i] = monoValue
 		scanData[i + 1] = monoValue
 		scanData[i + 2] = monoValue
 		binaryImage = binaryImage + (monoValue / 255)
 	}
-	//console.log(binaryImage)
 	ctx.putImageData(scan, 0, 0)
 	
 	// scale the image to fit the screen
-	scale = WIDTH / imgSize //size of image
+	scale = 8.333//WIDTH / SENDSIZE //size of image
 	const resizedImage = ctx.createImageData(WIDTH, HEIGHT)
 	for (let y = 0; y < HEIGHT; y++){
 		for (let x = 0; x < WIDTH; x++){
 			oldX = Math.floor(x / scale)
 			oldY = Math.floor(y / scale)
-			oldIdX = (oldY * imgSize + oldX) * 4
+			oldIdX = (oldY * SENDSIZE + oldX) * 4
 			newIdX = (y * WIDTH + x) * 4
 			
 			resizedImage.data[newIdX] = scan.data[oldIdX]
@@ -84,10 +104,21 @@ function encode(){ // Runs once on load
 		}
 	}
 	ctx.putImageData(resizedImage, 0, 0)
+}
+
+function finishEncode(){ // runs once to encode the adjusted image
+	threshold.hidden = true
+	THT.hidden = true
+	imageInput.hidden = false
+	encodeButton.hidden = true
+	decodeButton.hidden = false
+
+	console.log("button press")
+	clearInterval(monoLoop) // stop the loop
 	base10 = BigInt("0b" + binaryImage) // convert the binary image to base 10
 	
 	encoded = ""
-	//base10 = 1212121234343434565656567777n
+	//base10 = BigInt(outStr)
 	console.log(base10)
 	for (let i = 0; i < CHARAMT; i++){
 		encoded = String.fromCharCode(Number(base10 % TARGETBASE) + 31) + encoded
@@ -111,11 +142,14 @@ function encode(){ // Runs once on load
 function decode(decoderInput){ // decode inputted text. triggered by a button in the HTML
 	if (decoderInput === undefined){ // check if the function has an argument passed in
 		input = prompt("Please enter your encoded image:");
-		document.getElementById("helperText").innerHTML = "Decoded" // premptivly say decoded
+		//input = getClipboardText() // working on pasteless clipboard reading
+		console.log(input)
+		document.getElementById("helperText").innerHTML = "Decoded" // preemptively say decoded
 	} else {
 		input = decoderInput
 		document.getElementById("helperText").innerHTML = "Image code copied to your clipboard. This is what the sent image will look like."
 	}
+	
 	
 	base10Out = 0n
 	let placeValue = 1n
@@ -149,15 +183,4 @@ function decode(decoderInput){ // decode inputted text. triggered by a button in
 		}
 	}
 	ctx.putImageData(outputImage, 0, 0)
-}
-
-
-function fill0Buf (bufIn, bufLength){ // not used currently
-	let buffer = ""
-	console.log(bufLength - Number(bufIn).length)
-	for (let i = 0; i < bufLength - Number(bufIn).length; i++){
-		buffer += "0"
-		console.log(buffer)
-	}
-	return "" + buffer + bufIn
 }
