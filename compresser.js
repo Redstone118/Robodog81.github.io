@@ -1,8 +1,8 @@
 /**
 * Title: Meshtastic image encoder
 * Author: Robodog81
-* Date: 28/04/2026
-* Version: 2 (first big update)
+* Date: 30/04/2026
+* Version: 3 (colour)
 * Purpose: Encode and decode images for the meshtastic mesh
 **/
 
@@ -14,6 +14,21 @@ const TARGETBASE = 94n// what base to encode to (limited by amount of 2 byte cha
 const CHARAMT = 199 // the amount of characters to encode to (0 bufs up to this value)
 const SENDSIZE = 36 // res of imag
 
+const COLOUR1 = "rgb(255, 0, 0)"
+const COLOUR2 = "rgb(0, 255, 0)"
+const COLOUR3 = "rgb(0, 0, 255)"
+const COLOUR4 = "rgb(255, 255, 0)"
+const COLOUR5 = "rgb(0, 255, 255)"
+const COLOUR6 = "rgb(255, 0, 255)"
+const COLOUR7 = "rgb(150, 75, 0)"
+const COLOUR8 = "rgb(0, 0, 0)"
+const COLOUR9 = "rgb(255, 255, 255)"
+
+colourPrimary = "rgb(255, 255, 255)"
+colourSecondary = "rgb(0, 0, 0)"
+
+inColNum1 = 8// make global for cross function use
+inColNum2 = 9
 
 //window.addEventListener('mousemove', mouseMoved)
 
@@ -26,6 +41,11 @@ function startCanvas(){
 	imageInput.hidden = false
 	encodeButton.hidden = true
 	decodeButton.hidden = false
+	
+	const elements = document.querySelectorAll(".colour"); // hide the colour sliders
+	elements.forEach(el => {
+		el.hidden = true
+	});
 	
 	console.log("Upload a " + SENDSIZE + "x" + SENDSIZE + " image or decode a recived string")
 	document.getElementById("helperText").innerHTML = "Upload an image, it will automatically be scalled " + SENDSIZE + "x" + SENDSIZE
@@ -56,7 +76,7 @@ function startCanvas(){
 }
 
 function startEncode(){ // Runs once on load
-	document.getElementById("helperText").innerHTML = "Adjust the slider untill the image looks good, then press 'Encode Image'"
+	document.getElementById("helperText").innerHTML = "Adjust the sliders untill the image looks good, then press 'Encode Image'"
 
 	scan = ctx.getImageData(0, 0, SENDSIZE, SENDSIZE)// WIDTH, HEIGHT)
 	scanData = scan.data // constantly edited
@@ -68,13 +88,19 @@ function startEncode(){ // Runs once on load
 	encodeButton.hidden = false
 	decodeButton.hidden = true
 	
+	const elements = document.querySelectorAll(".colour"); // show the colour sliders
+	elements.forEach(el => {
+		el.hidden = false
+	});
+	
 	monoLoop = setInterval(processMono, 1) // loop the thereshold changing code
 }
 
 function processMono(){ // runs in a loob for the user to adjust the threshold to convert to mono
 	binaryImage = "" // clear the image data
-	const slider = document.getElementById("threshold")
-	const thresholdValue = slider.value;
+	const thresholdValue = document.getElementById("threshold").value
+	inColNum1 = Number(document.getElementById("col1").value)
+	inColNum2 = Number(document.getElementById("col2").value)
 	
 	for (let i = 0; i < scanReadOnly.length; i += 4){ // convert the image to mono
 		const luminance = 0.2126 * scanReadOnly[i] + 0.7152 * scanReadOnly[i + 1] + 0.0722 * scanReadOnly[i + 2]
@@ -86,9 +112,85 @@ function processMono(){ // runs in a loob for the user to adjust the threshold t
 	}
 	ctx.putImageData(scan, 0, 0)
 	
-	// scale the image to fit the screen
+	switch (inColNum1){ // convert the number to a colour
+		case 1:
+			colourPrimary = COLOUR1
+			break
+		case 2:
+			colourPrimary = COLOUR2
+			break
+		case 3:
+			colourPrimary = COLOUR3
+			break
+		case 4:
+			colourPrimary = COLOUR4
+			break
+		case 5:
+			colourPrimary = COLOUR5
+			break
+		case 6:
+			colourPrimary = COLOUR6
+			break
+		case 7:
+			colourPrimary = COLOUR7
+			break
+		case 8:
+			colourPrimary = COLOUR8
+			break
+		case 9:
+			colourPrimary = COLOUR9
+			break
+		default:
+			colourPrimary = COLOUR9 // default to white
+			console.error("Error: there seems to be no defined colour in the first slot")
+	}
+	switch (inColNum2){ // convert the number to a colour
+		case 1:
+			colourSecondary = COLOUR1
+			break
+		case 2:
+			colourSecondary = COLOUR2
+			break
+		case 3:
+			colourSecondary = COLOUR3
+			break
+		case 4:
+			colourSecondary = COLOUR4
+			break
+		case 5:
+			colourSecondary = COLOUR5
+			break
+		case 6:
+			colourSecondary = COLOUR6
+			break
+		case 7:
+			colourSecondary = COLOUR7
+			break
+		case 8:
+			colourSecondary = COLOUR8
+			break
+		case 9:
+			colourSecondary = COLOUR9
+			break
+		default:
+			colourPrimary = COLOUR8 // default to black
+			console.error("Error: there seems to be no defined colour in the second slot: " + col2)
+	}
+	
+	if (colourPrimary == "rgb(255, 255, 255)"){ // change white slider thumbs to light gray
+		document.getElementById("col1").style.accentColor = "rgb(235, 235, 235)"
+	} else { 
+		document.getElementById("col1").style.accentColor = colourPrimary
+	}
+	if (colourSecondary == "rgb(255, 255, 255)"){
+		document.getElementById("col2").style.accentColor = "rgb(235, 235, 235)"
+	} else { 
+		document.getElementById("col2").style.accentColor = colourSecondary
+	}
+	
+	// scale the image to fit the screen and do all of the prosesing (treshold and colour)
 	scale = 8.333//WIDTH / SENDSIZE //size of image
-	const resizedImage = ctx.createImageData(WIDTH, HEIGHT)
+	const processedImage = ctx.createImageData(WIDTH, HEIGHT)
 	for (let y = 0; y < HEIGHT; y++){
 		for (let x = 0; x < WIDTH; x++){
 			oldX = Math.floor(x / scale)
@@ -96,13 +198,20 @@ function processMono(){ // runs in a loob for the user to adjust the threshold t
 			oldIdX = (oldY * SENDSIZE + oldX) * 4
 			newIdX = (y * WIDTH + x) * 4
 			
-			resizedImage.data[newIdX] = scan.data[oldIdX]
-			resizedImage.data[newIdX + 1] = scan.data[oldIdX + 1]
-			resizedImage.data[newIdX + 2] = scan.data[oldIdX + 2]
-			resizedImage.data[newIdX + 3] = scan.data[oldIdX + 3]
+			if (scan.data[oldIdX] == 0){ // if the red pixel is on (works since the image is already monochrome)
+				processedImage.data[newIdX] = colourPrimary.match(/\d+/g)[0] // finds the red green or blue valuse and adds them to the image buffer
+				processedImage.data[newIdX + 1] = colourPrimary.match(/\d+/g)[1]
+				processedImage.data[newIdX + 2] = colourPrimary.match(/\d+/g)[2]
+				processedImage.data[newIdX + 3] = 255
+			} else {
+				processedImage.data[newIdX] = colourSecondary.match(/\d+/g)[0]
+				processedImage.data[newIdX + 1] = colourSecondary.match(/\d+/g)[1]
+				processedImage.data[newIdX + 2] = colourSecondary.match(/\d+/g)[2]
+				processedImage.data[newIdX + 3] = 255
+			}
 		}
 	}
-	ctx.putImageData(resizedImage, 0, 0)
+	ctx.putImageData(processedImage, 0, 0)
 }
 
 function finishEncode(){ // runs once to encode the adjusted image
@@ -111,6 +220,11 @@ function finishEncode(){ // runs once to encode the adjusted image
 	imageInput.hidden = false
 	encodeButton.hidden = true
 	decodeButton.hidden = false
+	
+	const elements = document.querySelectorAll(".colour"); // hide the colour sliders
+	elements.forEach(el => {
+		el.hidden = true
+	});
 
 	console.log("button press")
 	clearInterval(monoLoop) // stop the loop
@@ -118,13 +232,11 @@ function finishEncode(){ // runs once to encode the adjusted image
 	
 	encoded = ""
 	//base10 = BigInt(outStr)
-	console.log(base10)
 	for (let i = 0; i < CHARAMT; i++){
 		encoded = String.fromCharCode(Number(base10 % TARGETBASE) + 31) + encoded
 		base10 = (base10 - (base10 % TARGETBASE)) / TARGETBASE
 	}
-	encoded = encoded + "r"
-	console.log(encoded)
+	encoded = encoded + String.fromCharCode((inColNum2 - 1) * 9 + inColNum1 - 0) // add colour (1 - 81)
 	
 	document.getElementById("helperText").innerHTML = "Click allow to copy the image to clipboard"
 	navigator.clipboard.writeText(encoded)
@@ -143,7 +255,6 @@ function decode(decoderInput){ // decode inputted text. triggered by a button in
 	if (decoderInput === undefined){ // check if the function has an argument passed in
 		input = prompt("Please enter your encoded image:");
 		//input = getClipboardText() // working on pasteless clipboard reading
-		console.log(input)
 		document.getElementById("helperText").innerHTML = "Decoded" // preemptively say decoded
 	} else {
 		input = decoderInput
@@ -156,18 +267,82 @@ function decode(decoderInput){ // decode inputted text. triggered by a button in
 	for (let i = input.length - 2; i > 0; i--){ // length - 2 bc it offsets one for the colour char and the other is needed
 		base10Out += BigInt(input.charAt(i).codePointAt(0) - 31) * placeValue
 		placeValue *= TARGETBASE
-		console.log((input.charAt(i).codePointAt(0) - 31))
 	}
-	console.log(base10Out)
-	
 
 	binaryOut = ""
 	for (let i = 0; i < SENDSIZE * SENDSIZE ; i++){
 		binaryOut = Number(base10Out % 2n) + binaryOut
 		base10Out = (base10Out - (base10Out % 2n)) / 2n
 	}
-	console.log(binaryOut)
 	
+	finalChar = input.charAt(199).codePointAt(0) // figure out colours using the final char in the code
+	colNum1 = ((finalChar - 1) % 9) + 1
+	colNum2 = Math.ceil(finalChar / 9)
+	
+	switch (colNum1){ // convert the number to a colour
+		case 1:
+			colourPrimary = COLOUR1
+			break
+		case 2:
+			colourPrimary = COLOUR2
+			break
+		case 3:
+			colourPrimary = COLOUR3
+			break
+		case 4:
+			colourPrimary = COLOUR4
+			break
+		case 5:
+			colourPrimary = COLOUR5
+			break
+		case 6:
+			colourPrimary = COLOUR6
+			break
+		case 7:
+			colourPrimary = COLOUR7
+			break
+		case 8:
+			colourPrimary = COLOUR8
+			break
+		case 9:
+			colourPrimary = COLOUR9
+			break
+		default:
+			console.log("Error: there seems to be no encoded colour")
+	}
+	switch (colNum2){ // convert the number to a colour
+		case 1:
+			colourSecondary = COLOUR1
+			break
+		case 2:
+			colourSecondary = COLOUR2
+			break
+		case 3:
+			colourSecondary = COLOUR3
+			break
+		case 4:
+			colourSecondary = COLOUR4
+			break
+		case 5:
+			colourSecondary = COLOUR5
+			break
+		case 6:
+			colourSecondary = COLOUR6
+			break
+		case 7:
+			colourSecondary = COLOUR7
+			break
+		case 8:
+			colourSecondary = COLOUR8
+			break
+		case 9:
+			colourSecondary = COLOUR9
+			break
+		default:
+			console.log("Error: there seems to be no encoded colour in the second slot: " + col2)
+	}
+	
+	console.log("decode")
 	scale = WIDTH / SENDSIZE //size of image
 	const outputImage = ctx.createImageData(WIDTH, HEIGHT)
 	for (let y = 0; y < HEIGHT; y++){
@@ -176,11 +351,19 @@ function decode(decoderInput){ // decode inputted text. triggered by a button in
 			
 			newIdX = (y * WIDTH + x) * 4
 			
-			outputImage.data[newIdX] = fillValue
-			outputImage.data[newIdX + 1] = fillValue
-			outputImage.data[newIdX + 2] = fillValue
-			outputImage.data[newIdX + 3] = 255
+			if (fillValue == 0){
+				outputImage.data[newIdX] = colourPrimary.match(/\d+/g)[0] // finds the red green or blue valuse and adds them to the image buffer
+				outputImage.data[newIdX + 1] = colourPrimary.match(/\d+/g)[1]
+				outputImage.data[newIdX + 2] = colourPrimary.match(/\d+/g)[2]
+				outputImage.data[newIdX + 3] = 255
+			} else {
+				outputImage.data[newIdX] = colourSecondary.match(/\d+/g)[0]
+				outputImage.data[newIdX + 1] = colourSecondary.match(/\d+/g)[1]
+				outputImage.data[newIdX + 2] = colourSecondary.match(/\d+/g)[2]
+				outputImage.data[newIdX + 3] = 255
+			}
 		}
 	}
+	console.log("put")
 	ctx.putImageData(outputImage, 0, 0)
 }
