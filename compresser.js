@@ -14,6 +14,7 @@ const TARGETBASE = 94n// what base to encode to (limited by amount of 2 byte cha
 const CHARAMT = 199 // the amount of characters to encode to (0 bufs up to this value)
 const SENDSIZE = 36 // res of imag
 const CHAROFFSET = 31 // the offset for printable characters
+const COMPRESSIONCHUNK = 5 // the size of the chunks being compressed !Current needs to be a factor of the length
 
 const COLOURDATA = [
 	[255, 0, 0],
@@ -86,7 +87,7 @@ function startEncode(){ // Runs once on load
 
 	scan = ctx.getImageData(0, 0, SENDSIZE, SENDSIZE)// WIDTH, HEIGHT)
 	scanData = scan.data // constantly edited
-	scanReadOnly = scanData.slice() // only readed
+	scanReadOnly = scanData.slice() // only read
 	
 	threshold.hidden = false // show the slider
 	THT.hidden = false
@@ -170,8 +171,31 @@ function finishEncode(){ // runs once to encode the adjusted image
 	elements.forEach(el => {
 		el.hidden = true
 	});
+	
+	
+	
+	outStr = "" // compress using bnary RLE
+	inARow = 0
+	currentCheck = 255
+	console.log(Number("0b" + "1".repeat(COMPRESSIONCHUNK)))
+	for (let i = 0; i < scanData.length; i += 4){
+		if (scanData[i] == currentCheck && inARow < Number("0b" + "1".repeat(COMPRESSIONCHUNK))){ // the heighest binary value with COMPRESSIONCHUNK amount of binary places
+			inARow ++
+		} else {
+			outStr += toBinary(inARow, COMPRESSIONCHUNK)
+			if (currentCheck == 0){ // toggle pixel to check for
+				currentCheck = 255
+			} else {
+				currentCheck = 0
+			}
+			i -= 4
+			inARow = 0
+		}
+	}
+	outStr += toBinary(inARow, COMPRESSIONCHUNK) // finish off the last chunk
+	binaryImage = outStr
+	
 
-	console.log("button press")
 	clearInterval(monoLoop) // stop the loop
 	base10 = BigInt("0b" + binaryImage) // convert the binary image to base 10
 	
@@ -205,25 +229,52 @@ function decode(decoderInput){ // decode inputted text. triggered by a button in
 	}
 	
 	
-	base10Out = 0n
+	base10Out = 0n // convert to base 10 from the heigher base (base 94)
 	let placeValue = 1n
-	for (let i = input.length - 2; i > 0; i--){ // length - 2 bc it offsets one for the colour char and the other is needed
+	for (let i = input.length - 2; i > 0; i--){ // length - 2 because it offsets one for the colour char and the other is needed
 		base10Out += BigInt(input.charAt(i).codePointAt(0) - CHAROFFSET) * placeValue
 		placeValue *= TARGETBASE
 	}
 
-	binaryOut = ""
+	binaryOut = "" // convert the data to binary
 	for (let i = 0; i < SENDSIZE * SENDSIZE ; i++){
 		binaryOut = Number(base10Out % 2n) + binaryOut
 		base10Out = (base10Out - (base10Out % 2n)) / 2n
 	}
 	
-	finalChar = input.charAt(199).codePointAt(0) - CHAROFFSET // figure out colours using the final char in the code
+	
+	//decompress the RLE binary
+	let bufferData = ""
+	let currentValue = 0
+	for (let i = 0; i < binaryOut.length; i += COMPRESSIONCHUNK){ // loop through the binary data in chunks
+		binaryChunk = ""
+		for (let j = 0; j < COMPRESSIONCHUNK; j ++){ // create a string of the current compressed chunk
+			binaryChunk += binaryOut.charAt(i + j)
+		}
+		
+		decimalChunk = Number("0b" + binaryChunk) // convert to binary
+		console.log(decimalChunk)
+		//console.log("chunk index " + i + " is: " + decimalChunk + " in decimal and: " + binaryChunk + " in binary")
+		
+		bufferData += currentValue.toString().repeat(decimalChunk)// fill the buffer with the decomperssed data
+		currentValue = 1 - currentValue // invert the current value
+	}
+	binaryOut = bufferData // copy the buffer to the main display data
+	
+	finalChar = input.charAt(CHARAMT).codePointAt(0) - CHAROFFSET // figure out colours using the final char in the code
 	colNum1 = ((finalChar - 1) % 9) + 1
 	colNum2 = Math.ceil(finalChar / 9)
-	
-	colourPrimary = COLOURDATA[colNum1 - 1] // select the collour from the recived number
+
+	colourPrimary = COLOURDATA[colNum1 - 1] // select the colour from the recived number
 	colourSecondary = COLOURDATA[colNum2 - 1]
+	if (isNaN(colNum1)){ // error checking
+		console.error("There seems to be no encoded colour in the first slot")
+		colourPrimary = COLOURDATA[7] // default to black and white
+	}
+	if (isNaN(colNum2)){
+		console.error("There seems to be no encoded colour in the second slot")
+		colourSecondary = COLOURDATA[8] // default to black and white
+	}
 	
 	scale = WIDTH / SENDSIZE //size of image
 	const outputImage = ctx.createImageData(WIDTH, HEIGHT)
@@ -248,4 +299,15 @@ function decode(decoderInput){ // decode inputted text. triggered by a button in
 	}
 	console.log("Finished")
 	ctx.putImageData(outputImage, 0, 0)
+}
+
+
+function toBinary(input, length){
+	inputNo = BigInt(input)
+	binaryOut = "" // convert the data to binary
+	for (let i = 0; i < length; i++){
+		binaryOut = Number(inputNo % 2n) + binaryOut
+		inputNo = (inputNo - (inputNo % 2n)) / 2n
+	}
+	return binaryOut
 }
